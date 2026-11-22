@@ -1612,6 +1612,7 @@ class PaymentController extends Controller
                         PointHistory::create([
                             'membership_id' => $membership->id,
                             'points' => -$pointUsed,
+                            'remaining_points' => -$pointUsed,
                             'type' => 'Dùng điểm',
                         ]);
                     }
@@ -1627,6 +1628,7 @@ class PaymentController extends Controller
                         PointHistory::create([
                             'membership_id' => $membership->id,
                             'points' => $pointsEarned,
+                            'remaining_points' => $pointsEarned,
                             'type' => 'Nhận điểm',
                         ]);
                     }

@@ -345,8 +345,8 @@ class ReportController extends Controller
     
         // Xu hướng doanh thu theo tháng hoặc ngày
         $trendColumn = $timeGroup === 'day'
-            ? "DATE_FORMAT(tickets.created_at, '%d-%m')"
-            : "DATE_FORMAT(tickets.created_at, '%b')";
+            ? $this->dateCol('tickets.created_at', '%d-%m')
+            : $this->dateCol('tickets.created_at', '%b');
     
         $revenueTrend = Ticket::where('status', '!=', 'đã hủy')
             ->selectRaw("$trendColumn as time, SUM(tickets.total_price) as revenue")
@@ -375,6 +375,50 @@ class ReportController extends Controller
             'year' => '%Y',
             default => '%Y-%m-%d',
         };
+    }
+
+    /**
+     * DATE_FORMAT(...) trên MySQL / strftime(...) trên SQLite.
+     */
+    private function dateCol(string $column, string $format): string
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            return "DATE_FORMAT($column, '$format')";
+        }
+
+        // SQLite khong ho tro %b (thang rut gon Jan, Feb...) -> dung CASE
+        if ($format === '%b') {
+            $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            $cases = collect($months)->map(fn ($name, $index) => 'WHEN ' . ($index + 1) . " THEN '$name'")->implode(' ');
+
+            return "(CASE CAST(strftime('%m', $column) AS INTEGER) $cases END)";
+        }
+
+        // SQLite khong ho tro %u (ISO week) -> dung %W
+        $format = str_replace('%u', '%W', $format);
+
+        return "strftime('$format', $column)";
+    }
+
+    private function hourCol(string $column): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "CAST(strftime('%H', $column) AS INTEGER)"
+            : "HOUR($column)";
+    }
+
+    private function monthCol(string $column): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "CAST(strftime('%m', $column) AS INTEGER)"
+            : "MONTH($column)";
+    }
+
+    private function yearCol(string $column): string
+    {
+        return DB::getDriverName() === 'sqlite'
+            ? "CAST(strftime('%Y', $column) AS INTEGER)"
+            : "YEAR($column)";
     }
     
 
@@ -479,7 +523,7 @@ class ReportController extends Controller
     
         // Biểu đồ xu hướng bán vé theo ngày/tuần/tháng
         $ticketSalesTrend = Ticket_Seat::join('tickets', 'tickets.id', '=', 'ticket_seats.ticket_id')
-            ->selectRaw('DATE_FORMAT(ticket_seats.created_at, ?) as time_group, COUNT(ticket_seats.id) as total_tickets', [$this->getTimeFormat($timeGroup)])
+            ->selectRaw($this->dateCol('ticket_seats.created_at', $this->getTimeFormat($timeGroup)) . ' as time_group, COUNT(ticket_seats.id) as total_tickets')
             ->when($startDate || $endDate || $cinemaId, $filterConditions)
             ->groupBy('time_group')
             ->orderByRaw('MIN(ticket_seats.created_at)')
@@ -506,7 +550,7 @@ class ReportController extends Controller
         $peakHours = Ticket_Seat::join('tickets', 'tickets.id', '=', 'ticket_seats.ticket_id')
             ->join('showtimes', 'tickets.showtime_id', '=', 'showtimes.id')
             ->when($startDate || $endDate || $cinemaId, $filterConditions)
-            ->selectRaw('HOUR(showtimes.start_time) as hour, COUNT(ticket_seats.id) as total_tickets')
+            ->selectRaw($this->hourCol('showtimes.start_time') . ' as hour, COUNT(ticket_seats.id) as total_tickets')
             ->groupBy('hour')
             ->orderByDesc('total_tickets')
             ->limit(5)
@@ -591,7 +635,7 @@ class ReportController extends Controller
         $newCustomersByMonth = User::where('role', 'member')
             ->when($year, fn($query) => $query->whereYear('created_at', $year))
             ->when($month, fn($query) => $query->whereMonth('created_at', $month))
-            ->selectRaw('MONTH(created_at) as month, YEAR(created_at) as year, COUNT(id) as total_customers')
+            ->selectRaw($this->monthCol('created_at') . ' as month, ' . $this->yearCol('created_at') . ' as year, COUNT(id) as total_customers')
             ->groupBy('month', 'year')
             ->orderBy('month')
             ->get();
@@ -784,7 +828,7 @@ class ReportController extends Controller
         $peakBookingHours = Ticket::where('status', '!=', 'đã hủy')
             ->when($cinemaId, fn($query) => $query->where('cinema_id', $cinemaId))
             ->whereBetween('created_at', [$startOfPeriod, $endOfPeriod])
-            ->selectRaw('HOUR(created_at) as hour, COUNT(id) as total_bookings')
+            ->selectRaw($this->hourCol('created_at') . ' as hour, COUNT(id) as total_bookings')
             ->groupBy('hour')
             ->orderBy('total_bookings', 'desc')
             ->get()

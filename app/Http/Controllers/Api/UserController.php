@@ -238,8 +238,9 @@ class UserController extends Controller
                     // Tổng số lần user hiện tại đã sử dụng voucher này
                     DB::raw('(SELECT COUNT(*) FROM user_vouchers uv WHERE uv.voucher_id = vouchers.id AND uv.user_id = ' . $userId . ') as total_per_user')
                 )
-                ->havingRaw('total_usage < vouchers.quantity') // Kiểm tra tổng số lượt sử dụng
-                ->havingRaw('total_per_user < vouchers.per_user_limit') // Kiểm tra số lượt sử dụng tối đa của user
+                // Viết lại điều kiện HAVING thành WHERE (SQLite không hỗ trợ HAVING trên query không aggregate)
+                ->whereRaw('(SELECT COUNT(*) FROM user_vouchers uv WHERE uv.voucher_id = vouchers.id) < vouchers.quantity') // Kiểm tra tổng số lượt sử dụng
+                ->whereRaw('(SELECT COUNT(*) FROM user_vouchers uv WHERE uv.voucher_id = vouchers.id AND uv.user_id = ?) < vouchers.per_user_limit', [$userId]) // Kiểm tra số lượt sử dụng tối đa của user
                 ->get();
 
             return response()->json($vouchers);

@@ -185,7 +185,8 @@ class TicketController extends Controller
                 PointHistory::create([
                     'membership_id' => $membership->id,
                     'points' => -$usedPoints,
-                    'type' => 'trừ điểm',
+                    'remaining_points' => -$usedPoints,
+                    'type' => 'Dùng điểm',
                 ]);
                 $ticket->point = $usedPoints;
                 $ticket->point_discount = $usedPoints;
@@ -219,7 +220,8 @@ class TicketController extends Controller
             PointHistory::create([
                 'membership_id' => $membership->id,
                 'points' => $pointsEarned,
-                'type' => 'Tích Điểm',
+                'remaining_points' => $pointsEarned,
+                'type' => 'Nhận điểm',
                 'expired_at'=>Carbon::now()->addMonths(PointHistory::POINT_EXPIRY_DURATION),
             ]);
 
@@ -364,7 +366,8 @@ class TicketController extends Controller
                 PointHistory::create([
                     'membership_id' => $membership->id,
                     'points' => -$usePoints,
-                    'type' => 'trừ điểm',
+                    'remaining_points' => -$usePoints,
+                    'type' => 'Dùng điểm',
                 ]);
             }
 
@@ -394,7 +397,8 @@ class TicketController extends Controller
                 PointHistory::create([
                     'membership_id' => $membership->id,
                     'points' => $pointsDifference,
-                    'type' => $pointsDifference > 0 ? 'Tích Điểm' : 'Trừ Điểm',
+                    'remaining_points' => $pointsDifference,
+                    'type' => $pointsDifference > 0 ? 'Nhận điểm' : 'Dùng điểm',
                 ]);
             }
 
@@ -597,7 +601,7 @@ class TicketController extends Controller
                     'showtimes.date as show_date',
                     'tickets.expiry',
                     'tickets.payment_name',
-                    DB::raw('GROUP_CONCAT(seats.name ORDER BY seats.name ASC) as seat_names')
+                    DB::raw('GROUP_CONCAT(seats.name) as seat_names')
                 ])
                 ->join('users', 'tickets.user_id', '=', 'users.id')
                 ->join('movies', 'tickets.movie_id', '=', 'movies.id')

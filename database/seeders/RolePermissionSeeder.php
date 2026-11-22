@@ -18,7 +18,9 @@ class RolePermissionSeeder extends Seeder
     public function run(): void
     {
         // Tắt ràng buộc khóa ngoại tạm thời
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
     
         // Xóa tất cả các permission và role cũ
         Permission::truncate();

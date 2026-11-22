@@ -15,7 +15,9 @@ class SeatSeeder extends Seeder
     public function run(): void
     {
         // Tắt kiểm tra khóa ngoại tạm thời
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
 
         // Xóa dữ liệu trong bảng 'seats'
         DB::table('seats')->delete();
@@ -30,8 +32,8 @@ class SeatSeeder extends Seeder
         }
 
         // Lấy danh sách loại ghế
-        $regularSeat = TypeSeat::where('name', 'Ghế thường')->first();
-        $vipSeat = TypeSeat::where('name', 'Ghế VIP')->first();
+        $regularSeat = TypeSeat::whereRaw('LOWER(name) = ?', ['ghế thường'])->first();
+        $vipSeat = TypeSeat::whereRaw('LOWER(name) = ?', ['ghế vip'])->first();
 
         // Kiểm tra nếu chưa có loại ghế thì dừng
         if (!$regularSeat || !$vipSeat) {
@@ -62,6 +64,8 @@ class SeatSeeder extends Seeder
         }
 
         // Bật lại kiểm tra khóa ngoại
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        }
     }
 }
